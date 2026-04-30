@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>経費精算</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f6f4f0; --surface:#fff; --surface2:#eeebe4; --border:#ddd9cf;
+  --green:#1a472a; --green-l:#2d6a40; --green-bg:#e8f5ed;
+  --blue:#1a3a5c; --blue-bg:#eaf0f7;
+  --yellow:#9a7000; --yellow-bg:#fef9e7;
+  --red:#c0392b; --text:#1c1a16; --text2:#5a5446; --text3:#9e9688;
+  --sh:0 2px 12px rgba(0,0,0,0.07); --sh-lg:0 8px 32px rgba(0,0,0,0.13);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px}
+
+header{background:var(--green);padding:0 16px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.2)}
+.hd-left{display:flex;align-items:center;gap:10px}
+.hd-icon{width:30px;height:30px;background:rgba(255,255,255,0.18);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px}
+.hd-title{font-weight:900;font-size:14px;letter-spacing:0.08em;color:#fff}
+.hd-store{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:5px 12px;color:#fff;font-size:13px;font-weight:700}
+
+main{max-width:620px;margin:0 auto;padding:14px 13px 60px}
+
+/* BALANCE CARD */
+.bal-card{background:var(--green);border-radius:18px;padding:18px 20px;margin-bottom:20px;box-shadow:var(--sh-lg);position:relative;overflow:hidden}
+.bal-card::after{content:'¥';position:absolute;right:-8px;top:-16px;font-size:110px;font-weight:900;color:rgba(255,255,255,0.05);line-height:1;pointer-events:none}
+.bal-month{font-size:11px;color:rgba(255,255,255,0.6);letter-spacing:0.1em;margin-bottom:14px;font-weight:500}
+.bal-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-bottom:13px}
+.bal-item{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:10px 12px}
+.bal-item.hi{background:rgba(255,255,255,0.2);border-color:rgba(255,255,255,0.28)}
+.bal-lbl{font-size:10px;color:rgba(255,255,255,0.6);margin-bottom:4px;letter-spacing:0.05em}
+.bal-val{font-family:'DM Mono',monospace;font-size:17px;font-weight:500;color:#fff}
+.bal-val.y{color:#ffd700}
+.bal-val.r{color:#ff7070}
+.eq-row{background:rgba(0,0,0,0.18);border-radius:10px;padding:10px 14px;display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap}
+.eq-lbl{font-size:11px;color:rgba(255,255,255,0.55)}
+.eq-num{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:#fff}
+.eq-num.r{color:#ff7070}
+.eq-op{font-size:13px;color:rgba(255,255,255,0.35)}
+.eq-tot{font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:#ffd700}
+
+/* STEP CARDS */
+.step-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 18px 16px;margin-bottom:12px;box-shadow:var(--sh)}
+.step-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.step-num{width:28px;height:28px;border-radius:50%;background:var(--green);color:#fff;font-size:13px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.step-title{font-size:15px;font-weight:700;color:var(--text)}
+.step-sub{font-size:12px;color:var(--text3);margin-top:1px}
+
+/* STEP 1: 撮影 */
+.capture-btn{width:100%;padding:18px;background:var(--green);border:none;border-radius:12px;color:#fff;font-family:inherit;font-size:17px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all .2s;letter-spacing:.03em}
+.capture-btn:hover{background:var(--green-l)}
+.capture-btn:active{transform:scale(0.98)}
+
+/* PREVIEW */
+.preview-box{display:none;background:var(--surface2);border-radius:10px;padding:11px 13px;align-items:center;gap:10px;margin-top:10px}
+.preview-box.show{display:flex}
+.prev-thumb{width:50px;height:50px;object-fit:cover;border-radius:7px;border:1px solid var(--border)}
+.prev-info{flex:1}
+.prev-name{font-size:12px;color:var(--text2);margin-bottom:2px}
+.prev-status{font-size:13px;font-weight:700;color:var(--green)}
+
+/* STEP 2: 読取 */
+.analyze-btn{width:100%;padding:16px;background:var(--surface2);border:1.5px solid var(--border);border-radius:12px;color:var(--text2);font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.03em}
+.analyze-btn.ready{background:var(--green-bg);border-color:var(--green);color:var(--green)}
+.analyze-btn:disabled{opacity:.4;cursor:not-allowed}
+.spin-row{display:none;text-align:center;padding:14px;color:var(--text3);font-size:13px}
+.spin-row.show{display:block}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* RESULT CARD */
+.result-card{display:none;background:var(--green-bg);border:1.5px solid rgba(26,71,42,0.25);border-radius:12px;padding:14px 16px;margin-top:12px}
+.result-card.show{display:block}
+.result-title{font-size:11px;font-weight:700;letter-spacing:.1em;color:var(--green);margin-bottom:10px}
+.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.result-item{background:rgba(255,255,255,0.7);border-radius:8px;padding:9px 11px}
+.result-lbl{font-size:10px;color:var(--text3);margin-bottom:3px;letter-spacing:.05em}
+.result-val{font-size:14px;font-weight:700;color:var(--text)}
+.result-val.money{font-family:'DM Mono',monospace;font-size:18px;color:var(--green)}
+.cat-display{background:rgba(255,255,255,0.7);border-radius:8px;padding:9px 11px;display:flex;align-items:center;gap:8px}
+.cat-badge{padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700}
+.cat-badge.消耗品費{background:var(--green-bg);color:var(--green);border:1px solid rgba(26,71,42,0.2)}
+.cat-badge.仕入{background:var(--blue-bg);color:var(--blue);border:1px solid rgba(26,58,92,0.2)}
+.cat-badge.雑費{background:var(--yellow-bg);color:var(--yellow);border:1px solid rgba(154,112,0,0.2)}
+.cat-badge.未判定{background:#f0f0f0;color:var(--text3);border:1px solid var(--border)}
+.cat-note{font-size:11px;color:var(--text3)}
+
+/* STEP 3: 登録 */
+.register-btn{width:100%;padding:18px;background:var(--green);border:none;border-radius:12px;color:#fff;font-family:inherit;font-size:17px;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.03em}
+.register-btn:hover{background:var(--green-l);transform:translateY(-1px);box-shadow:var(--sh)}
+.register-btn:active{transform:translateY(0)}
+.register-btn:disabled{background:var(--text3);cursor:not-allowed;transform:none}
+
+/* ADD CASH */
+.add-card{background:var(--yellow-bg);border:1.5px solid #d4a017;border-radius:14px;padding:14px 16px;margin-bottom:12px}
+.add-title-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.add-icon{font-size:16px}
+.add-title{font-size:13px;font-weight:700;color:var(--yellow)}
+.add-row{display:flex;gap:8px;align-items:flex-end}
+.fg{flex:1}
+.flbl{display:block;font-size:11px;color:var(--text2);font-weight:600;letter-spacing:.06em;margin-bottom:4px}
+input[type=text],input[type=number],input[type=date]{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:inherit;font-size:15px;padding:10px 12px;outline:none;transition:border-color .2s,box-shadow .2s}
+input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,71,42,0.1)}
+.add-btn{padding:10px 16px;background:var(--yellow);border:none;border-radius:9px;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+
+/* LIST */
+.sec{font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--text3);text-transform:uppercase;margin:18px 0 7px}
+.r-list{display:flex;flex-direction:column;gap:6px}
+.r-item{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:10px 12px;display:flex;align-items:center;gap:9px;animation:si .2s ease}
+@keyframes si{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+.r-date{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);white-space:nowrap}
+.r-badge{padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap}
+.b-消耗品費{background:var(--green-bg);color:var(--green)}
+.b-仕入{background:var(--blue-bg);color:var(--blue)}
+.b-雑費{background:var(--yellow-bg);color:var(--yellow)}
+.b-追加入金{background:#fff8e1;color:#e65100}
+.r-desc{flex:1;font-size:13px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.r-amt{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;white-space:nowrap}
+.r-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:17px;padding:2px 4px;line-height:1}
+.r-del:hover{color:var(--red)}
+
+/* SUMMARY */
+.sum-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--sh)}
+.srow{display:flex;justify-content:space-between;align-items:center;padding:10px 15px;border-bottom:1px solid var(--border);font-size:14px}
+.srow:last-child{border-bottom:none}
+.srow.tot{background:var(--green-bg);font-weight:700}
+.sl{color:var(--text2)}
+.sv{font-family:'DM Mono',monospace;font-weight:500}
+.srow.tot .sv{color:var(--green)}
+.sdiv{height:1px;background:var(--border)}
+.empty{text-align:center;padding:26px 0;color:var(--text3);font-size:13px}
+
+/* API SETTINGS */
+.api-card{border-radius:14px;padding:13px 15px;margin-bottom:10px}
+.api-title{font-size:11px;font-weight:700;letter-spacing:.1em;margin-bottom:7px}
+.api-row{display:flex;gap:8px;align-items:flex-end}
+.api-row .fg{flex:1}
+.api-btn{padding:10px 13px;border:none;border-radius:9px;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+
+/* TOAST */
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--text);color:#fff;border-radius:10px;padding:11px 20px;font-size:14px;font-weight:500;z-index:999;transition:transform .3s cubic-bezier(0.34,1.56,0.64,1);white-space:nowrap;box-shadow:var(--sh-lg)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.ok{background:var(--green)}
+.toast.err{background:var(--red)}
+
+#file-input{display:none}
+
+@media(max-width:400px){
+  .bal-grid{grid-template-columns:1fr 1fr}
+  .result-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hd-left">
+    <div class="hd-icon">🧾</div>
+    <span class="hd-title">経費精算</span>
+  </div>
+  <div class="hd-store" id="hd-store">—</div>
+</header>
+
+<main>
+  <!-- BALANCE -->
+  <div class="bal-card" id="bal-card">
+    <div class="bal-month" id="bal-month">—</div>
+    <div class="bal-grid">
+      <div class="bal-item"><div class="bal-lbl">月初常備金</div><div class="bal-val" id="b-init">—</div></div>
+      <div class="bal-item" id="b-add-item"><div class="bal-lbl">追加入金</div><div class="bal-val" id="b-add">¥0</div></div>
+      <div class="bal-item hi"><div class="bal-lbl">常備金総額</div><div class="bal-val" id="b-total">—</div></div>
+    </div>
+    <div class="eq-row">
+      <span class="eq-lbl">領収書</span><span class="eq-num" id="eq-rec">¥0</span>
+      <span class="eq-op">＋</span>
+      <span class="eq-lbl">現金残</span><span class="eq-num" id="eq-cash">—</span>
+      <span class="eq-op">＝</span>
+      <span class="eq-tot" id="eq-tot">—</span>
+    </div>
+  </div>
+
+  <!-- STEP 1: 撮影 -->
+  <div class="step-card">
+    <div class="step-header">
+      <div class="step-num">1</div>
+      <div>
+        <div class="step-title">レシートを撮影する</div>
+        <div class="step-sub">カメラでレシートを写してください</div>
+      </div>
+    </div>
+    <button class="capture-btn" onclick="document.getElementById('file-input').click()">
+      📷 撮影する
+    </button>
+    <div class="preview-box" id="prev-box">
+      <img class="prev-thumb" id="prev-thumb" src="">
+      <div class="prev-info">
+        <div class="prev-name" id="prev-name"></div>
+        <div class="prev-status" id="prev-status">撮影済み ✓</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2: AI読取 -->
+  <div class="step-card">
+    <div class="step-header">
+      <div class="step-num">2</div>
+      <div>
+        <div class="step-title">AIに読み取ってもらう</div>
+        <div class="step-sub">ボタンを押すと自動で金額・内容を読み取ります</div>
+      </div>
+    </div>
+    <button class="analyze-btn" id="analyze-btn" onclick="doAnalyze()" disabled>
+      🤖 AI読取ボタン
+    </button>
+    <div class="spin-row" id="spin-row">
+      <span class="spin"></span>AIが読み取り中です…少しお待ちください
+    </div>
+    <div class="result-card" id="result-card">
+      <div class="result-title">✓ 読み取り結果</div>
+      <div class="result-grid">
+        <div class="result-item">
+          <div class="result-lbl">日付</div>
+          <div class="result-val" id="res-date">—</div>
+        </div>
+        <div class="result-item">
+          <div class="result-lbl">金額</div>
+          <div class="result-val money" id="res-amount">—</div>
+        </div>
+      </div>
+      <div class="result-item" style="margin-bottom:8px">
+        <div class="result-lbl">内容</div>
+        <div class="result-val" id="res-desc" style="font-size:13px">—</div>
+      </div>
+      <div class="cat-display">
+        <span class="cat-note">費目：</span>
+        <span class="cat-badge" id="res-cat">未判定</span>
+        <span class="cat-note" id="res-cat-note"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: 登録 -->
+  <div class="step-card">
+    <div class="step-header">
+      <div class="step-num">3</div>
+      <div>
+        <div class="step-title">登録する</div>
+        <div class="step-sub">内容を確認してボタンを押してください</div>
+      </div>
+    </div>
+    <button class="register-btn" id="register-btn" onclick="doRegister()" disabled>
+      ✓ 登録する
+    </button>
+  </div>
+
+  <!-- 追加入金 -->
+  <div class="add-card">
+    <div class="add-title-row">
+      <span class="add-icon">⚠</span>
+      <span class="add-title">現金が足りなくなった場合のみ — 追加入金</span>
+    </div>
+    <div class="add-row">
+      <div class="fg"><label class="flbl">日付</label><input type="date" id="add-date"></div>
+      <div class="fg"><label class="flbl">追加金額（円）</label><input type="number" id="add-amt" placeholder="0" min="0"></div>
+      <button class="add-btn" onclick="addCash()">記録</button>
+    </div>
+  </div>
+
+  <!-- 今月の領収書一覧 -->
+  <div class="sec">今月の領収書一覧</div>
+  <div class="r-list" id="r-list"></div>
+
+  <!-- 月次集計 -->
+  <div class="sec">月次集計</div>
+  <div class="sum-card" id="sum-card"></div>
+
+  <!-- 設定（折りたたみ） -->
+  <div class="sec" style="cursor:pointer" onclick="toggleSettings()">
+    ⚙ 設定 <span id="settings-arrow" style="font-size:10px">▼</span>
+  </div>
+  <div id="settings-panel" style="display:none">
+    <div class="api-card" style="background:#eaf0f7;border:1.5px solid #90c4f0">
+      <div class="api-title" style="color:var(--blue)">GEMINI API KEY（月1500回無料）</div>
+      <div class="api-row">
+        <div class="fg"><input type="text" id="inp-gkey" placeholder="AIzaSy..."></div>
+        <button class="api-btn" style="background:var(--blue)" onclick="saveGemini()">保存</button>
+      </div>
+    </div>
+    <div class="api-card" style="background:var(--green-bg);border:1.5px solid #86efac">
+      <div class="api-title" style="color:var(--green)">GAS WEB APP URL</div>
+      <div class="api-row">
+        <div class="fg"><input type="text" id="inp-gas" placeholder="https://script.google.com/macros/s/..."></div>
+        <button class="api-btn" style="background:var(--green)" onclick="saveGas()">保存</button>
+      </div>
+    </div>
+    <div class="api-card" style="background:var(--surface);border:1px solid var(--border)">
+      <div class="api-title" style="color:var(--text2)">月初常備金（円）</div>
+      <div class="api-row">
+        <div class="fg"><input type="number" id="inp-init" placeholder="20000" min="0"></div>
+        <button class="api-btn" style="background:var(--green)" onclick="saveInit()">保存</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="file-input" accept="image/*" capture="environment">
+
+<script>
+// ==============================
+// 費目自動判別辞書
+// ==============================
+const CAT_RULES = {
+  '仕入': ['キャベツ','もやし','長ネギ','ねぎ','ネギ','野菜','米','お米','ライス','割り箸','わりばし','お新香','松前漬け','たくあん','からし','漬物','コカ・コーラ','コカコーラ','コーラ','ジュース','飲料','ドリンク','食材','食品','肉','鶏','豚','牛','うどん','そば','カレー','油','醤油','みそ','味噌','だし','塩','砂糖','スーパー','業務スーパー','市場','青果','八百屋','魚'],
+  '消耗品費': ['ペーパータオル','タオル','修正テープ','タイマー','電池','セロハン','テープ','洗剤','洗浄','掃除','清掃','文房具','ボールペン','ペン','ノート','コピー用紙','袋','レジ袋','ラップ','アルミ','手袋','マスク','エプロン','ホームセンター','コーナン','カインズ','ダイソー','百均','100均','消耗','備品'],
+  '雑費': ['両替','手数料','送料','振込','交通','駐車','ガソリン','高速','通信','電話']
+};
+
+function detectCat(text) {
+  if (!text) return null;
+  for (const [cat, kws] of Object.entries(CAT_RULES)) {
+    for (const kw of kws) { if (text.includes(kw)) return cat; }
+  }
+  return null;
+}
+
+// ==============================
+// 店舗名（URLパラメータ）
+// ==============================
+const STORE = new URLSearchParams(location.search).get('store') || '葛西店';
+const SK = `store_${STORE}`;
+document.getElementById('hd-store').textContent = STORE;
+document.title = `経費精算 | ${STORE}`;
+
+// ==============================
+// STATE
+// ==============================
+let S = {
+  geminiKey: localStorage.getItem('geminiKey') || '',
+  gasUrl: localStorage.getItem('gasUrl') || '',
+  receipts: JSON.parse(localStorage.getItem(`${SK}_receipts`) || '[]'),
+  additionalCash: JSON.parse(localStorage.getItem(`${SK}_adds`) || '[]'),
+  initCash: parseInt(localStorage.getItem(`${SK}_initCash`) || '20000'),
+  pending: null, // 読み取り結果の一時保存
+};
+
+function persist() {
+  localStorage.setItem(`${SK}_receipts`, JSON.stringify(S.receipts));
+  localStorage.setItem(`${SK}_adds`, JSON.stringify(S.additionalCash));
+  localStorage.setItem(`${SK}_initCash`, S.initCash);
+  if (S.geminiKey) localStorage.setItem('geminiKey', S.geminiKey);
+  if (S.gasUrl) localStorage.setItem('gasUrl', S.gasUrl);
+}
+
+// ==============================
+// HELPERS
+// ==============================
+const fmt = n => '¥' + Number(n||0).toLocaleString();
+
+function curMonth() { return new Date().toISOString().slice(0,7); }
+function today() { return new Date().toISOString().slice(0,10); }
+
+function getMonthRecs() { return S.receipts.filter(r => r.date.startsWith(curMonth())); }
+function getMonthAdds() { return S.additionalCash.filter(a => a.date.startsWith(curMonth())); }
+
+function calcBal() {
+  const recs = getMonthRecs();
+  const adds = getMonthAdds();
+  const recTotal = recs.reduce((s,r)=>s+r.amount,0);
+  const addTotal = adds.reduce((s,a)=>s+a.amount,0);
+  const total = S.initCash + addTotal;
+  return { recTotal, addTotal, total, cashLeft: total - recTotal };
+}
+
+function toast(msg, type='ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.className = 'toast', 2800);
+}
+
+async function syncGAS(type, data) {
+  if (!S.gasUrl) return;
+  try {
+    await fetch(S.gasUrl, {
+      method:'POST', mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ type, store: STORE, data })
+    });
+  } catch(e) {}
+}
+
+// ==============================
+// BALANCE 更新
+// ==============================
+function updateBalance() {
+  const month = curMonth();
+  const [y, m] = month.split('-');
+  const bal = calcBal();
+
+  document.getElementById('bal-month').textContent = `${y}年 ${parseInt(m)}月 / ${STORE}`;
+  document.getElementById('b-init').textContent = fmt(S.initCash);
+  document.getElementById('b-add').textContent = fmt(bal.addTotal);
+  document.getElementById('b-add').className = 'bal-val' + (bal.addTotal > 0 ? ' y' : '');
+  document.getElementById('b-total').textContent = fmt(bal.total);
+
+  document.getElementById('eq-rec').textContent = fmt(bal.recTotal);
+  const cashEl = document.getElementById('eq-cash');
+  cashEl.textContent = fmt(bal.cashLeft);
+  cashEl.className = 'eq-num' + (bal.cashLeft < 0 ? ' r' : '');
+  document.getElementById('eq-tot').textContent = fmt(bal.total);
+
+  // 一覧
+  const recs = getMonthRecs();
+  const adds = getMonthAdds();
+  const allItems = [
+    ...recs.map(r => ({...r, type:'rec'})),
+    ...adds.map(a => ({...a, type:'add', category:'追加入金'}))
+  ].sort((a,b) => b.date.localeCompare(a.date));
+
+  const listEl = document.getElementById('r-list');
+  if (allItems.length === 0) {
+    listEl.innerHTML = '<div class="empty">今月の記録はまだありません</div>';
+  } else {
+    listEl.innerHTML = allItems.map(item => `
+      <div class="r-item">
+        <span class="r-date">${item.date}</span>
+        <span class="r-badge b-${item.category}">${item.category}</span>
+        <span class="r-desc">${item.description||'—'}</span>
+        <span class="r-amt ${item.type==='add'?'style="color:var(--yellow)"':''}">${fmt(item.amount)}</span>
+        <button class="r-del" onclick="${item.type==='rec'?`delRec('${item.id}')`:`delAdd('${item.id}')`}">×</button>
+      </div>`).join('');
+  }
+
+  // 集計
+  const bycat = {};
+  recs.forEach(r=>{ bycat[r.category]=(bycat[r.category]||0)+r.amount; });
+  const shiire = bycat['仕入']||0;
+  const other = (bycat['消耗品費']||0)+(bycat['雑費']||0);
+  document.getElementById('sum-card').innerHTML = `
+    <div class="srow"><span class="sl">消耗品費</span><span class="sv">${fmt(bycat['消耗品費']||0)}</span></div>
+    <div class="srow"><span class="sl" style="color:var(--blue)">仕入</span><span class="sv" style="color:var(--blue)">${fmt(shiire)}</span></div>
+    <div class="srow"><span class="sl">雑費</span><span class="sv">${fmt(bycat['雑費']||0)}</span></div>
+    <div class="sdiv"></div>
+    <div class="srow"><span class="sl">仕入 合計</span><span class="sv" style="color:var(--blue)">${fmt(shiire)}</span></div>
+    <div class="srow"><span class="sl">その他 合計</span><span class="sv">${fmt(other)}</span></div>
+    <div class="srow tot"><span class="sl">領収書 合計</span><span class="sv">${fmt(bal.recTotal)}</span></div>
+  `;
+}
+
+// ==============================
+// FILE INPUT
+// ==============================
+document.getElementById('file-input').addEventListener('change', function(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const dataUrl = ev.target.result;
+    const b64 = dataUrl.split(',')[1];
+
+    // プレビュー表示
+    document.getElementById('prev-thumb').src = dataUrl;
+    document.getElementById('prev-name').textContent = file.name;
+    document.getElementById('prev-box').classList.add('show');
+
+    // 読取ボタンをアクティブに
+    const btn = document.getElementById('analyze-btn');
+    btn.disabled = false;
+    btn.classList.add('ready');
+    btn.textContent = '🤖 AI読取ボタン（押してください）';
+
+    // 登録ボタンをリセット
+    document.getElementById('register-btn').disabled = true;
+    document.getElementById('result-card').classList.remove('show');
+
+    // b64を一時保存
+    S.pending = { b64, name: file.name };
+  };
+  reader.readAsDataURL(file);
+  this.value = '';
+});
+
+// ==============================
+// GEMINI OCR
+// ==============================
+async function doAnalyze() {
+  if (!S.pending) return;
+  if (!S.geminiKey) { toast('設定にAPIキーを入力してください','err'); return; }
+
+  const analyzeBtn = document.getElementById('analyze-btn');
+  const spinRow = document.getElementById('spin-row');
+  analyzeBtn.disabled = true;
+  analyzeBtn.classList.remove('ready');
+  analyzeBtn.textContent = '🤖 AI読取ボタン';
+  spinRow.classList.add('show');
+
+  const prompt = `このレシート・領収書から情報を読み取ってJSON形式のみで返してください（前置き・後書き不要）。
+{"date":"YYYY-MM-DD","amount":数値またはnull,"storeName":"店名またはnull","items":"商品概要","rawText":"読み取りテキスト"}`;
+
+  let result = null;
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${S.geminiKey}`,
+      { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:S.pending.b64}}]}], generationConfig:{temperature:0.1,maxOutputTokens:512} }) }
+    );
+    if (res.ok) {
+      const d = await res.json();
+      const txt = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const m = txt.match(/\{[\s\S]*\}/);
+      if (m) result = JSON.parse(m[0]);
+    }
+  } catch(e) {}
+
+  spinRow.classList.remove('show');
+
+  if (result) {
+    // 費目自動判別
+    const combined = [result.storeName, result.items, result.rawText].filter(Boolean).join(' ');
+    const cat = detectCat(combined) || '消耗品費';
+
+    // 結果をpendingに追記
+    S.pending.result = {
+      date: result.date || today(),
+      amount: result.amount || 0,
+      description: [result.storeName, result.items].filter(Boolean).join(' '),
+      category: cat,
+    };
+
+    // 結果カード表示
+    document.getElementById('res-date').textContent = result.date || '—';
+    document.getElementById('res-amount').textContent = result.amount ? fmt(result.amount) : '—';
+    document.getElementById('res-desc').textContent = [result.storeName, result.items].filter(Boolean).join(' ') || '—';
+
+    const catEl = document.getElementById('res-cat');
+    catEl.textContent = cat;
+    catEl.className = `cat-badge ${cat}`;
+    document.getElementById('res-cat-note').textContent = detectCat(combined) ? '（自動判定）' : '（デフォルト）';
+
+    document.getElementById('result-card').classList.add('show');
+
+    // 登録ボタンを有効化
+    document.getElementById('register-btn').disabled = false;
+
+    // 画像をメモリから破棄
+    S.pending.b64 = null;
+    document.getElementById('prev-thumb').src = '';
+
+    toast('読み取り完了 ✓ 内容を確認して登録してください');
+  } else {
+    toast('読み取りに失敗しました。もう一度試してください','err');
+    analyzeBtn.disabled = false;
+    analyzeBtn.classList.add('ready');
+    analyzeBtn.textContent = '🤖 AI読取ボタン（もう一度）';
+  }
+}
+
+// ==============================
+// REGISTER
+// ==============================
+function doRegister() {
+  if (!S.pending?.result) return;
+  const { date, amount, description, category } = S.pending.result;
+  if (!amount || amount <= 0) { toast('金額が読み取れませんでした','err'); return; }
+
+  const r = {
+    id: Date.now().toString(),
+    date, amount, category, description,
+    store: STORE,
+    createdAt: new Date().toISOString()
+  };
+
+  S.receipts.push(r);
+  persist();
+  syncGAS('receipt', r);
+
+  // リセット
+  S.pending = null;
+  document.getElementById('prev-box').classList.remove('show');
+  document.getElementById('result-card').classList.remove('show');
+  document.getElementById('register-btn').disabled = true;
+  document.getElementById('analyze-btn').disabled = true;
+  document.getElementById('analyze-btn').textContent = '🤖 AI読取ボタン';
+
+  toast('登録しました ✓');
+  updateBalance();
+}
+
+// ==============================
+// ADD CASH
+// ==============================
+function addCash() {
+  const date = document.getElementById('add-date').value;
+  const amount = parseInt(document.getElementById('add-amt').value);
+  if (!date || !amount || amount <= 0) { toast('日付と金額を入力してください','err'); return; }
+  const a = { id:Date.now().toString(), date, amount, store:STORE, createdAt:new Date().toISOString() };
+  S.additionalCash.push(a); persist(); syncGAS('additionalCash', a);
+  document.getElementById('add-amt').value = '';
+  toast(`追加入金 ${fmt(amount)} を記録しました ✓`);
+  updateBalance();
+}
+
+function delRec(id) {
+  if (!confirm('この領収書を削除しますか？')) return;
+  S.receipts = S.receipts.filter(r=>r.id!==id); persist(); updateBalance();
+}
+
+function delAdd(id) {
+  if (!confirm('この追加入金を削除しますか？')) return;
+  S.additionalCash = S.additionalCash.filter(a=>a.id!==id); persist(); updateBalance();
+}
+
+// ==============================
+// SETTINGS
+// ==============================
+function toggleSettings() {
+  const panel = document.getElementById('settings-panel');
+  const arrow = document.getElementById('settings-arrow');
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  arrow.textContent = isOpen ? '▼' : '▲';
+  if (!isOpen) {
+    document.getElementById('inp-gkey').value = S.geminiKey;
+    document.getElementById('inp-gas').value = S.gasUrl;
+    document.getElementById('inp-init').value = S.initCash;
+  }
+}
+
+function saveGemini() { S.geminiKey=document.getElementById('inp-gkey').value.trim(); persist(); toast('APIキーを保存しました ✓'); }
+function saveGas() { S.gasUrl=document.getElementById('inp-gas').value.trim(); persist(); toast('GAS URLを保存しました ✓'); }
+function saveInit() {
+  const v = parseInt(document.getElementById('inp-init').value);
+  if (v>0) { S.initCash=v; persist(); toast('常備金を保存しました ✓'); updateBalance(); }
+}
+
+// ==============================
+// INIT
+// ==============================
+document.getElementById('add-date').value = today();
+updateBalance();
+</script>
+</body>
+</html>

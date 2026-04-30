@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>経費精算 経営管理</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#0f1117;--surface:#181c28;--surface2:#1e2338;--border:#2a2f4a;
+  --green:#34d399;--green-bg:rgba(52,211,153,0.12);--green-dim:#1a6645;
+  --blue:#60a5fa;--blue-bg:rgba(96,165,250,0.1);
+  --yellow:#fbbf24;--yellow-bg:rgba(251,191,36,0.1);
+  --red:#f87171;--text:#e8ecf4;--text2:#8892b0;--text3:#3d4466;
+  --sh:0 2px 12px rgba(0,0,0,0.3);--sh-lg:0 8px 32px rgba(0,0,0,0.5);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px}
+
+/* PIN SCREEN */
+.pin-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.pin-box{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:36px 32px;max-width:340px;width:100%;box-shadow:var(--sh-lg);text-align:center}
+.pin-icon{font-size:36px;margin-bottom:14px}
+.pin-title{font-size:18px;font-weight:700;color:var(--text);margin-bottom:4px}
+.pin-sub{font-size:13px;color:var(--text2);margin-bottom:24px}
+.pin-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Mono',monospace;font-size:22px;padding:14px;text-align:center;outline:none;letter-spacing:0.3em;transition:border-color .2s;margin-bottom:14px}
+.pin-input:focus{border-color:var(--green)}
+.pin-input.shake{animation:shake .4s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.pin-btn{width:100%;padding:13px;background:var(--green-dim);border:none;border-radius:10px;color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.04em}
+.pin-btn:hover{opacity:.85}
+.pin-err{color:var(--red);font-size:13px;margin-top:10px;min-height:20px}
+
+/* HEADER */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.hd-left{display:flex;align-items:center;gap:10px}
+.hd-icon{width:30px;height:30px;background:rgba(52,211,153,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px}
+.hd-title{font-weight:900;font-size:14px;color:var(--green);letter-spacing:.06em}
+.hd-logout{padding:6px 12px;background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--text2);font-family:inherit;font-size:12px;cursor:pointer;transition:all .15s}
+.hd-logout:hover{border-color:var(--red);color:var(--red)}
+
+main{max-width:700px;margin:0 auto;padding:16px 13px 60px}
+
+/* CONTROLS */
+.ctrl-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+select.field{background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:inherit;font-size:14px;padding:9px 12px;outline:none;flex:1;min-width:120px}
+select.field:focus{border-color:var(--green)}
+
+.month-nav{display:flex;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px;box-shadow:var(--sh)}
+.mnav-btn{background:none;border:none;padding:12px 18px;color:var(--text2);font-size:18px;cursor:pointer;transition:background .15s}
+.mnav-btn:hover{background:var(--surface2)}
+.mnav-label{flex:1;text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--text)}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;box-shadow:var(--sh)}
+.kpi-lbl{font-size:11px;color:var(--text2);letter-spacing:.06em;margin-bottom:6px}
+.kpi-val{font-family:'DM Mono',monospace;font-size:20px;font-weight:500;color:var(--text)}
+.kpi-val.g{color:var(--green)}
+.kpi-val.b{color:var(--blue)}
+
+/* BALANCE */
+.bal-row{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.eq-lbl{font-size:12px;color:var(--text2)}
+.eq-num{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--text)}
+.eq-num.r{color:var(--red)}
+.eq-op{color:var(--text3)}
+.eq-tot{font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--yellow)}
+
+/* SEC */
+.sec{font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--text3);text-transform:uppercase;margin:18px 0 7px;padding-left:1px}
+
+/* TABLE */
+.tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--sh);margin-bottom:10px}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{background:var(--surface2);padding:9px 12px;text-align:left;font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--text2);border-bottom:1px solid var(--border)}
+.tbl td{padding:9px 12px;border-bottom:1px solid rgba(42,47,74,0.5);color:var(--text)}
+.tbl tr:last-child td{border-bottom:none}
+.td-r{text-align:right;font-family:'DM Mono',monospace}
+
+.badge{padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap}
+.b-消耗品費{background:var(--green-bg);color:var(--green)}
+.b-仕入{background:var(--blue-bg);color:var(--blue)}
+.b-雑費{background:var(--yellow-bg);color:var(--yellow)}
+.b-追加入金{background:rgba(251,191,36,0.1);color:#e65100}
+
+/* ALL STORES */
+.store-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.store-mini{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px}
+.store-mini-name{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;letter-spacing:.04em}
+.store-mini-val{font-family:'DM Mono',monospace;font-size:18px;font-weight:500;color:var(--green)}
+.store-mini-sub{font-size:11px;color:var(--text3);margin-top:3px}
+
+/* EXPORT */
+.export-btn{width:100%;padding:13px;background:var(--surface);border:1.5px solid var(--green);border-radius:12px;color:var(--green);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.04em;box-shadow:var(--sh)}
+.export-btn:hover{background:var(--green-dim);color:#fff}
+
+/* SETTINGS */
+.set-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:15px;box-shadow:var(--sh);margin-bottom:10px}
+.set-title{font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.08em;margin-bottom:10px}
+.set-row{display:flex;gap:8px;align-items:flex-end;margin-bottom:8px}
+.set-row:last-child{margin-bottom:0}
+.fg{flex:1}
+.flbl{display:block;font-size:11px;color:var(--text2);font-weight:600;letter-spacing:.06em;margin-bottom:4px}
+input[type=text],input[type=number],input[type=password]{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:inherit;font-size:14px;padding:9px 12px;outline:none;transition:border-color .2s}
+input:focus{border-color:var(--green)}
+.set-btn{padding:9px 14px;background:var(--green-bg);border:1px solid rgba(52,211,153,0.3);border-radius:9px;color:var(--green);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.set-btn:hover{background:var(--green-dim);color:#fff;border-color:var(--green-dim)}
+
+.empty{text-align:center;padding:26px 0;color:var(--text3);font-size:13px}
+
+/* TOAST */
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:11px 20px;font-size:14px;font-weight:500;z-index:999;transition:transform .3s cubic-bezier(0.34,1.56,0.64,1);white-space:nowrap;box-shadow:var(--sh-lg)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.ok{border-color:var(--green);color:var(--green)}
+.toast.err{border-color:var(--red);color:var(--red)}
+
+@media(max-width:420px){.kpi-grid{grid-template-columns:1fr}.store-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div id="pin-screen" class="pin-screen">
+  <div class="pin-box">
+    <div class="pin-icon">🔐</div>
+    <div class="pin-title">経営管理画面</div>
+    <div class="pin-sub">PINコードを入力してください</div>
+    <input class="pin-input" type="password" id="pin-inp" maxlength="8" placeholder="••••" onkeydown="if(event.key==='Enter')checkPin()">
+    <button class="pin-btn" onclick="checkPin()">ログイン</button>
+    <div class="pin-err" id="pin-err"></div>
+  </div>
+</div>
+
+<div id="main-app" style="display:none">
+  <header>
+    <div class="hd-left">
+      <div class="hd-icon">📊</div>
+      <span class="hd-title">経営管理</span>
+    </div>
+    <button class="hd-logout" onclick="logout()">ログアウト</button>
+  </header>
+  <main id="app"></main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ==============================
+// PIN認証
+// ==============================
+const DEFAULT_PIN = '1234';
+let currentPin = localStorage.getItem('mgr_pin') || DEFAULT_PIN;
+
+function checkPin() {
+  const inp = document.getElementById('pin-inp').value;
+  if (inp === currentPin) {
+    document.getElementById('pin-screen').style.display = 'none';
+    document.getElementById('main-app').style.display = 'block';
+    sessionStorage.setItem('mgr_auth', '1');
+    render();
+  } else {
+    const el = document.getElementById('pin-inp');
+    el.classList.add('shake');
+    document.getElementById('pin-err').textContent = 'PINコードが違います';
+    setTimeout(() => { el.classList.remove('shake'); el.value=''; }, 400);
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem('mgr_auth');
+  document.getElementById('pin-screen').style.display = 'flex';
+  document.getElementById('main-app').style.display = 'none';
+  document.getElementById('pin-inp').value = '';
+  document.getElementById('pin-err').textContent = '';
+}
+
+// セッション維持
+if (sessionStorage.getItem('mgr_auth') === '1') {
+  document.getElementById('pin-screen').style.display = 'none';
+  document.getElementById('main-app').style.display = 'block';
+}
+
+// ==============================
+// STATE
+// ==============================
+let M = {
+  stores: JSON.parse(localStorage.getItem('mgr_stores') || '["葛西店"]'),
+  selStore: localStorage.getItem('mgr_selStore') || null,
+  selectedMonth: new Date().toISOString().slice(0,7),
+  gasUrl: localStorage.getItem('gasUrl') || '',
+  view: 'single', // 'single' | 'all'
+};
+if (!M.selStore || !M.stores.includes(M.selStore)) M.selStore = M.stores[0];
+
+function persistMgr() {
+  localStorage.setItem('mgr_stores', JSON.stringify(M.stores));
+  localStorage.setItem('mgr_selStore', M.selStore);
+  if (M.gasUrl) localStorage.setItem('gasUrl', M.gasUrl);
+}
+
+// ==============================
+// DATA ACCESS（店舗データを読む）
+// ==============================
+const fmt = n => '¥' + Number(n||0).toLocaleString();
+
+function getStoreRecs(store, month) {
+  const key = `store_${store}_receipts`;
+  const all = JSON.parse(localStorage.getItem(key) || '[]');
+  return month ? all.filter(r => r.date.startsWith(month)) : all;
+}
+function getStoreAdds(store, month) {
+  const key = `store_${store}_adds`;
+  const all = JSON.parse(localStorage.getItem(key) || '[]');
+  return month ? all.filter(a => a.date.startsWith(month)) : all;
+}
+function getStoreInitCash(store) {
+  return parseInt(localStorage.getItem(`store_${store}_initCash`) || '20000');
+}
+function calcBal(store, month) {
+  const init = getStoreInitCash(store);
+  const recs = getStoreRecs(store, month);
+  const adds = getStoreAdds(store, month);
+  const recTotal = recs.reduce((s,r)=>s+r.amount,0);
+  const addTotal = adds.reduce((s,a)=>s+a.amount,0);
+  const total = init + addTotal;
+  return { init, recTotal, addTotal, total, cashLeft: total - recTotal };
+}
+
+// ==============================
+// HELPERS
+// ==============================
+function toast(msg, type='ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.className = 'toast', 2800);
+}
+
+// ==============================
+// RENDER
+// ==============================
+function render() {
+  if (sessionStorage.getItem('mgr_auth') !== '1') return;
+  document.getElementById('app').innerHTML = buildApp();
+}
+
+function buildApp() {
+  const store = M.selStore;
+  const month = M.selectedMonth;
+  const [y, m] = month.split('-');
+  const bal = calcBal(store, month);
+  const recs = getStoreRecs(store, month);
+  const adds = getStoreAdds(store, month);
+
+  const storeOpts = M.stores.map(s=>`<option ${s===store?'selected':''}>${s}</option>`).join('');
+
+  const bycat = {};
+  recs.forEach(r=>{ bycat[r.category]=(bycat[r.category]||0)+r.amount; });
+  const shiire = bycat['仕入']||0;
+  const other = (bycat['消耗品費']||0)+(bycat['雑費']||0);
+
+  const rows = recs.length===0
+    ? `<tr><td colspan="4" class="empty" style="border:none">データなし</td></tr>`
+    : recs.map(r=>`
+      <tr>
+        <td>${r.date}</td>
+        <td><span class="badge b-${r.category}">${r.category}</span></td>
+        <td>${r.description||'—'}</td>
+        <td class="td-r">${fmt(r.amount)}</td>
+      </tr>`).join('');
+
+  const addRows = adds.map(a=>`
+    <tr style="background:rgba(251,191,36,0.04)">
+      <td>${a.date}</td>
+      <td><span class="badge b-追加入金">追加入金</span></td>
+      <td>—</td>
+      <td class="td-r" style="color:var(--yellow)">${fmt(a.amount)}</td>
+    </tr>`).join('');
+
+  // 全店舗サマリー
+  const allStoreCards = M.stores.map(s => {
+    const b = calcBal(s, month);
+    const r = getStoreRecs(s, month);
+    const bc = {};
+    r.forEach(x=>{ bc[x.category]=(bc[x.category]||0)+x.amount; });
+    return `
+      <div class="store-mini">
+        <div class="store-mini-name">📍 ${s}</div>
+        <div class="store-mini-val">${fmt(b.recTotal)}</div>
+        <div class="store-mini-sub">仕入 ${fmt(bc['仕入']||0)} ／ その他 ${fmt((bc['消耗品費']||0)+(bc['雑費']||0))}</div>
+        <div class="store-mini-sub" style="margin-top:4px;color:${b.cashLeft<0?'var(--red)':'var(--text3)'}">現金残 ${fmt(b.cashLeft)}</div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="ctrl-row">
+      <select class="field" onchange="M.selStore=this.value;persistMgr();render()">${storeOpts}</select>
+    </div>
+
+    <div class="month-nav">
+      <button class="mnav-btn" onclick="chgMonth(-1)">‹</button>
+      <span class="mnav-label">${y}年 ${parseInt(m)}月</span>
+      <button class="mnav-btn" onclick="chgMonth(1)">›</button>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-lbl">常備金総額</div><div class="kpi-val g">${fmt(bal.total)}</div></div>
+      <div class="kpi-card"><div class="kpi-lbl">領収書 合計</div><div class="kpi-val">${fmt(bal.recTotal)}</div></div>
+      <div class="kpi-card" style="border-color:rgba(96,165,250,0.3);background:var(--blue-bg)"><div class="kpi-lbl" style="color:var(--blue)">仕入 合計</div><div class="kpi-val b">${fmt(shiire)}</div></div>
+      <div class="kpi-card"><div class="kpi-lbl">その他 合計</div><div class="kpi-val">${fmt(other)}</div></div>
+    </div>
+
+    <div class="bal-row">
+      <span class="eq-lbl">領収書</span><span class="eq-num">${fmt(bal.recTotal)}</span>
+      <span class="eq-op">＋</span>
+      <span class="eq-lbl">現金残</span><span class="eq-num ${bal.cashLeft<0?'r':''}">${fmt(bal.cashLeft)}</span>
+      <span class="eq-op">＝</span>
+      <span class="eq-tot">${fmt(bal.total)}</span>
+    </div>
+
+    <div class="sec">全店舗比較 — ${y}年${parseInt(m)}月</div>
+    <div class="store-grid">${allStoreCards}</div>
+
+    <div class="sec">明細一覧 — ${store}</div>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr><th>日付</th><th>費目</th><th>内容</th><th style="text-align:right">金額</th></tr></thead>
+        <tbody>${rows}${addRows}</tbody>
+      </table>
+    </div>
+
+    <button class="export-btn" onclick="exportXlsx()">↓ Excel出力（freee入力用）</button>
+
+    <div class="sec">設定</div>
+    <div class="set-card">
+      <div class="set-title">店舗管理</div>
+      <div class="set-row">
+        <div class="fg"><label class="flbl">新しい店舗を追加</label><input type="text" id="inp-new-store" placeholder="店舗名"></div>
+        <button class="set-btn" onclick="addStore()">追加</button>
+      </div>
+      <div class="set-row">
+        <div class="fg"><label class="flbl">GAS Web App URL</label><input type="text" id="inp-gas" value="${M.gasUrl}" placeholder="https://script.google.com/macros/s/..."></div>
+        <button class="set-btn" onclick="saveGas()">保存</button>
+      </div>
+    </div>
+
+    <div class="set-card">
+      <div class="set-title">PINコード変更</div>
+      <div class="set-row">
+        <div class="fg"><label class="flbl">現在のPIN</label><input type="password" id="old-pin" placeholder="現在のPIN"></div>
+        <div class="fg"><label class="flbl">新しいPIN</label><input type="password" id="new-pin" placeholder="4〜8桁"></div>
+        <button class="set-btn" onclick="changePin()">変更</button>
+      </div>
+    </div>
+  `;
+}
+
+// ==============================
+// ACTIONS
+// ==============================
+function chgMonth(d) {
+  const [y,m] = M.selectedMonth.split('-').map(Number);
+  const dt = new Date(y,m-1+d,1);
+  M.selectedMonth = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+  render();
+}
+
+function addStore() {
+  const ns = document.getElementById('inp-new-store')?.value.trim();
+  if (!ns) { toast('店舗名を入力してください','err'); return; }
+  if (M.stores.includes(ns)) { toast('すでに存在します','err'); return; }
+  M.stores.push(ns);
+  persistMgr();
+  toast(`「${ns}」を追加しました ✓`);
+  render();
+}
+
+function saveGas() {
+  M.gasUrl = document.getElementById('inp-gas')?.value.trim();
+  persistMgr();
+  toast('GAS URLを保存しました ✓');
+}
+
+function changePin() {
+  const old = document.getElementById('old-pin')?.value;
+  const nw = document.getElementById('new-pin')?.value;
+  if (old !== currentPin) { toast('現在のPINが違います','err'); return; }
+  if (!nw || nw.length < 4) { toast('新しいPINは4桁以上にしてください','err'); return; }
+  currentPin = nw;
+  localStorage.setItem('mgr_pin', nw);
+  toast('PINを変更しました ✓');
+}
+
+// ==============================
+// EXCEL EXPORT
+// ==============================
+function exportXlsx() {
+  const store = M.selStore;
+  const month = M.selectedMonth;
+  const recs = getStoreRecs(store, month);
+  const adds = getStoreAdds(store, month);
+  const bal = calcBal(store, month);
+  const [y,m] = month.split('-');
+
+  const wb = XLSX.utils.book_new();
+
+  const bycat = {};
+  recs.forEach(r=>{ bycat[r.category]=(bycat[r.category]||0)+r.amount; });
+  const shiire = bycat['仕入']||0;
+  const other = (bycat['消耗品費']||0)+(bycat['雑費']||0);
+
+  // 明細
+  const ws1 = XLSX.utils.aoa_to_sheet([
+    ['取引日','費目','内容','金額（円）','区分'],
+    ...recs.map(r=>[r.date,r.category,r.description||'',r.amount,r.category==='仕入'?'仕入':'その他']),
+    ...adds.map(a=>[a.date,'追加入金','',a.amount,'入金'])
+  ]);
+  ws1['!cols']=[{wch:12},{wch:12},{wch:26},{wch:14},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,ws1,'明細');
+
+  // サマリー
+  const ws2 = XLSX.utils.aoa_to_sheet([
+    [`${store} ／ ${y}年${parseInt(m)}月 月次精算`],[],
+    ['■ 常備金'],['月初常備金',bal.init],['追加入金合計',bal.addTotal],['常備金総額',bal.total],[],
+    ['■ 費目別合計'],['消耗品費',bycat['消耗品費']||0],['仕入',bycat['仕入']||0],['雑費',bycat['雑費']||0],[],
+    ['■ 区分別合計'],['仕入 合計',shiire],['その他 合計',other],['領収書 合計',bal.recTotal],[],
+    ['■ 残高確認'],['現金残高',bal.cashLeft],['確認（合計）',bal.recTotal+bal.cashLeft],
+  ]);
+  ws2['!cols']=[{wch:22},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws2,'サマリー');
+
+  // freee入力用
+  const ws3 = XLSX.utils.aoa_to_sheet([
+    ['取引日','勘定科目','税区分','金額','摘要'],
+    ...recs.map(r=>[r.date,r.category,'課税仕入10%',r.amount,`${store} ${r.description||r.category}`])
+  ]);
+  ws3['!cols']=[{wch:12},{wch:12},{wch:14},{wch:12},{wch:32}];
+  XLSX.utils.book_append_sheet(wb,ws3,'freee入力用');
+
+  XLSX.writeFile(wb,`経費精算_${store}_${month}.xlsx`);
+  toast('Excelを出力しました ✓');
+}
+
+// 初期レンダー
+if (sessionStorage.getItem('mgr_auth') === '1') render();
+</script>
+</body>
+</html>
