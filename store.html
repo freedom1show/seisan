@@ -488,6 +488,29 @@ document.getElementById('file-input').addEventListener('change', function(e) {
 // ==============================
 // GEMINI OCR
 // ==============================
+let cooldownTimer = null;
+
+function startCooldown() {
+  const analyzeBtn = document.getElementById('analyze-btn');
+  let sec = 30;
+  analyzeBtn.disabled = true;
+  analyzeBtn.classList.remove('ready');
+  if (cooldownTimer) clearInterval(cooldownTimer);
+  cooldownTimer = setInterval(() => {
+    sec--;
+    const btn = document.getElementById('analyze-btn');
+    if (btn) btn.textContent = `⏳ しばらくお待ちください（${sec}秒）`;
+    if (sec <= 0) {
+      clearInterval(cooldownTimer);
+      cooldownTimer = null;
+      if (S.pending && !S.pending.result) {
+        const b = document.getElementById('analyze-btn');
+        if (b) { b.disabled = false; b.classList.add('ready'); b.textContent = '🤖 AI読取ボタン（もう一度）'; }
+      }
+    }
+  }, 1000);
+}
+
 async function doAnalyze() {
   if (!S.pending) return;
   if (!S.geminiKey) { toast('設定にAPIキーを入力してください','err'); return; }
@@ -496,8 +519,9 @@ async function doAnalyze() {
   const spinRow = document.getElementById('spin-row');
   analyzeBtn.disabled = true;
   analyzeBtn.classList.remove('ready');
-  analyzeBtn.textContent = '🤖 AI読取ボタン';
+  analyzeBtn.textContent = '🤖 AI読取中...';
   spinRow.classList.add('show');
+  startCooldown();
 
   const prompt = `このレシート・領収書から情報を読み取ってJSON形式のみで返してください（前置き・後書き不要）。
 {"date":"YYYY-MM-DD","amount":数値またはnull,"storeName":"店名またはnull","items":"商品概要","rawText":"読み取りテキスト"}`;
