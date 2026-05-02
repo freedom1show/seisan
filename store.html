@@ -461,25 +461,36 @@ document.getElementById('file-input').addEventListener('change', function(e) {
   const reader = new FileReader();
   reader.onload = ev => {
     const dataUrl = ev.target.result;
-    const b64 = dataUrl.split(',')[1];
+    // 画像を圧縮
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX = 1200;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const compressed = canvas.toDataURL('image/jpeg', 0.7);
+      const b64 = compressed.split(',')[1];
 
-    // プレビュー表示
-    document.getElementById('prev-thumb').src = dataUrl;
-    document.getElementById('prev-name').textContent = file.name;
-    document.getElementById('prev-box').classList.add('show');
+      document.getElementById('prev-thumb').src = dataUrl;
+      document.getElementById('prev-name').textContent = file.name;
+      document.getElementById('prev-box').classList.add('show');
 
-    // 読取ボタンをアクティブに
-    const btn = document.getElementById('analyze-btn');
-    btn.disabled = false;
-    btn.classList.add('ready');
-    btn.textContent = '🤖 AI読取ボタン（押してください）';
+      const btn = document.getElementById('analyze-btn');
+      btn.disabled = false;
+      btn.classList.add('ready');
+      btn.textContent = '🤖 AI読取ボタン（押してください）';
 
-    // 登録ボタンをリセット
-    document.getElementById('register-btn').disabled = true;
-    document.getElementById('result-card').classList.remove('show');
+      document.getElementById('register-btn').disabled = true;
+      document.getElementById('result-card').classList.remove('show');
 
-    // b64を一時保存
-    S.pending = { b64, name: file.name };
+      S.pending = { b64, name: file.name };
+    };
+    img.src = dataUrl;
   };
   reader.readAsDataURL(file);
   this.value = '';
