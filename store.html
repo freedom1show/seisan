@@ -133,6 +133,8 @@ input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,71,42,0.1)}
 .srow.tot .sv{color:var(--green)}
 .sdiv{height:1px;background:var(--border)}
 .empty{text-align:center;padding:26px 0;color:var(--text3);font-size:13px}
+.buyer-select{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:15px;padding:12px 14px;outline:none;cursor:pointer;transition:border-color .2s}
+.buyer-select:focus{border-color:var(--green)}
 
 /* 購入者 */
 .buyer-section{margin-top:10px}
@@ -213,10 +215,28 @@ input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,71,42,0.1)}
     </div>
   </div>
 
-  <!-- STEP 2: AI読取 -->
+  <!-- STEP 2: 買った人 -->
   <div class="step-card">
     <div class="step-header">
       <div class="step-num">2</div>
+      <div>
+        <div class="step-title">買った人を選ぶ</div>
+        <div class="step-sub">誰が買いに行ったか選んでください</div>
+      </div>
+    </div>
+    <select id="buyer-select" class="buyer-select">
+      <option value="">— 選んでください —</option>
+    </select>
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+      <input type="text" id="buyer-new-input" placeholder="新しい人の名前を入力" style="flex:1;font-size:14px;padding:9px 12px">
+      <button onclick="addBuyerFromInput()" style="padding:9px 14px;background:var(--green);border:none;border-radius:9px;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">追加して選択</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: AI読取 -->
+  <div class="step-card">
+    <div class="step-header">
+      <div class="step-num">3</div>
       <div>
         <div class="step-title">AIに読み取ってもらう</div>
         <div class="step-sub">ボタンを押すと自動で金額・内容を読み取ります</div>
@@ -249,20 +269,13 @@ input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,71,42,0.1)}
         <span class="cat-badge" id="res-cat">未判定</span>
         <span class="cat-note" id="res-cat-note"></span>
       </div>
-      <div class="buyer-section">
-        <div class="buyer-lbl">買った人</div>
-        <div class="buyer-btns" id="buyer-btns"></div>
-        <div class="buyer-input-row">
-          <input type="text" id="buyer-input" placeholder="名前を入力（新しい人の場合）">
-        </div>
-      </div>
     </div>
   </div>
 
-  <!-- STEP 3: 登録 -->
+  <!-- STEP 4: 登録 -->
   <div class="step-card">
     <div class="step-header">
-      <div class="step-num">3</div>
+      <div class="step-num">4</div>
       <div>
         <div class="step-title">登録する</div>
         <div class="step-sub">内容を確認してボタンを押してください</div>
@@ -459,7 +472,7 @@ function updateBalance() {
         <span class="r-date">${item.date}</span>
         <span class="r-badge b-${item.category}">${item.category}</span>
         <span class="r-desc">${item.description||'—'}${item.buyer?' ('+item.buyer+')':''}</span>
-        <span class="r-amt ${item.type==='add'?'style="color:var(--yellow)"':''}">${fmt(item.amount)}</span>
+        <span class="r-amt" style="${item.type==='add'?'color:var(--yellow)':''}">${fmt(item.amount)}</span>
         <button class="r-del" onclick="${item.type==='rec'?`delRec('${item.id}')`:`delAdd('${item.id}')`}">×</button>
       </div>`).join('');
   }
@@ -624,13 +637,7 @@ async function doAnalyze() {
     S.pending.b64 = null;
     document.getElementById('prev-thumb').src = '';
 
-    // 購入者ボタンを描画
-    renderBuyerBtns();
-    S.selectedBuyer = '';
-    const bi = document.getElementById('buyer-input');
-    if (bi) bi.value = '';
-
-    toast('読み取り完了 ✓ 買った人を選んで登録してください');
+    toast('読み取り完了 ✓ 内容を確認して登録してください');
   } else {
     toast('読み取りに失敗しました。もう一度試してください','err');
     analyzeBtn.disabled = false;
@@ -647,13 +654,8 @@ function doRegister() {
   const { date, amount, description, category } = S.pending.result;
   if (!amount || amount <= 0) { toast('金額が読み取れませんでした','err'); return; }
 
-  // 購入者取得（ボタン選択 or 手入力）
-  const buyerInput = document.getElementById('buyer-input')?.value.trim();
-  const buyer = buyerInput || S.selectedBuyer || '';
-  // 新しい名前なら登録
-  if (buyerInput && !S.buyers.includes(buyerInput)) {
-    S.buyers.push(buyerInput);
-  }
+  // 購入者取得（プルダウン）
+  const buyer = document.getElementById('buyer-select')?.value || '';
 
   const r = {
     id: Date.now().toString(),
@@ -712,6 +714,7 @@ function addBuyer() {
   if (!S.buyers.includes(name)) { S.buyers.push(name); persist(); }
   document.getElementById('inp-buyer').value = '';
   refreshBuyerList();
+  renderBuyerSelect();
   toast(`「${name}」を登録しました ✓`);
 }
 
@@ -719,6 +722,7 @@ function removeBuyer(name) {
   S.buyers = S.buyers.filter(b => b !== name);
   persist();
   refreshBuyerList();
+  renderBuyerSelect();
 }
 
 function refreshBuyerList() {
@@ -746,19 +750,25 @@ function toggleSettings() {
   }
 }
 
-function renderBuyerBtns() {
-  const wrap = document.getElementById('buyer-btns');
-  if (!wrap) return;
-  wrap.innerHTML = S.buyers.map(b =>
-    `<button class="buyer-btn ${S.selectedBuyer===b?'sel':''}" onclick="selectBuyer('${b}')">${b}</button>`
-  ).join('');
+function renderBuyerSelect() {
+  const sel = document.getElementById('buyer-select');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— 選んでください —</option>' +
+    S.buyers.map(b => `<option value="${b}" ${cur===b?'selected':''}>${b}</option>`).join('');
 }
 
-function selectBuyer(name) {
-  S.selectedBuyer = name;
-  const bi = document.getElementById('buyer-input');
-  if (bi) bi.value = '';
-  renderBuyerBtns();
+function addBuyerFromInput() {
+  const inp = document.getElementById('buyer-new-input');
+  const name = inp?.value.trim();
+  if (!name) { toast('名前を入力してください','err'); return; }
+  if (!S.buyers.includes(name)) { S.buyers.push(name); persist(); }
+  renderBuyerSelect();
+  // 追加した名前を選択状態に
+  const sel = document.getElementById('buyer-select');
+  if (sel) sel.value = name;
+  inp.value = '';
+  toast(`「${name}」を選択しました ✓`);
 }
 
 function saveGemini() { S.geminiKey=document.getElementById('inp-gkey').value.trim(); persist(); toast('APIキーを保存しました ✓'); }
@@ -772,6 +782,7 @@ function saveInit() {
 // INIT
 // ==============================
 document.getElementById('add-date').value = today();
+renderBuyerSelect();
 updateBalance();
 </script>
 </body>
