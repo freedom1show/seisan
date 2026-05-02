@@ -492,7 +492,7 @@ let cooldownTimer = null;
 
 function startCooldown() {
   const analyzeBtn = document.getElementById('analyze-btn');
-  let sec = 30;
+  let sec = 60;
   analyzeBtn.disabled = true;
   analyzeBtn.classList.remove('ready');
   if (cooldownTimer) clearInterval(cooldownTimer);
@@ -529,7 +529,7 @@ async function doAnalyze() {
   let result = null;
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${S.geminiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${S.geminiKey}`,
       { method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:S.pending.b64}}]}], generationConfig:{temperature:0.1,maxOutputTokens:512} }) }
     );
