@@ -214,6 +214,31 @@ function getStoreAdds(store, month) {
   const all = JSON.parse(localStorage.getItem(key) || '[]');
   return month ? all.filter(a => a.date.startsWith(month)) : all;
 }
+function getStoreDeleted(store) {
+  return JSON.parse(localStorage.getItem(`store_${store}_deleted`) || '[]');
+}
+function restoreRec(store, id) {
+  const deleted = getStoreDeleted(store);
+  const rec = deleted.find(r=>r.id===id);
+  if (!rec) return;
+  const newDeleted = deleted.filter(r=>r.id!==id);
+  localStorage.setItem(`store_${store}_deleted`, JSON.stringify(newDeleted));
+  const recs = JSON.parse(localStorage.getItem(`store_${store}_receipts`) || '[]');
+  delete rec.deletedAt;
+  recs.push(rec);
+  localStorage.setItem(`store_${store}_receipts`, JSON.stringify(recs));
+  toast('復元しました ✓');
+  render();
+}
+
+function approveDelete(store, id) {
+  if (!confirm('この削除を承認しますか？\n承認するとデータが完全に消去されます')) return;
+  const deleted = getStoreDeleted(store);
+  const newDeleted = deleted.filter(r=>r.id!==id);
+  localStorage.setItem(`store_${store}_deleted`, JSON.stringify(newDeleted));
+  toast('承認しました（完全削除）');
+  render();
+}
 function getStoreInitCash(store) {
   return parseInt(localStorage.getItem(`store_${store}_initCash`) || '20000');
 }
@@ -333,6 +358,8 @@ function buildApp() {
 
     <button class="export-btn" onclick="exportXlsx()">↓ Excel出力（freee入力用）</button>
 
+    ${buildDeletedLog(store)}
+
     <div class="sec">設定</div>
     <div class="set-card">
       <div class="set-title">店舗管理</div>
@@ -360,6 +387,31 @@ function buildApp() {
 // ==============================
 // ACTIONS
 // ==============================
+function buildDeletedLog(store) {
+  const deleted = getStoreDeleted(store);
+  if (deleted.length === 0) return '';
+  const rows = deleted.map(r => `
+    <tr style="background:rgba(248,113,113,0.05)">
+      <td>${r.date}</td>
+      <td><span class="badge b-${r.category}">${r.category}</span></td>
+      <td>${r.description||'—'}</td>
+      <td>${r.buyer||'—'}</td>
+      <td class="td-r" style="color:var(--red)">${fmt(r.amount)}</td>
+      <td style="display:flex;gap:6px;padding:8px 12px">
+        <button onclick="restoreRec('${store}','${r.id}')" style="padding:4px 10px;background:rgba(52,211,153,0.15);border:1px solid var(--green);border-radius:6px;color:var(--green);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">復元</button>
+        <button onclick="approveDelete('${store}','${r.id}')" style="padding:4px 10px;background:rgba(248,113,113,0.15);border:1px solid var(--red);border-radius:6px;color:var(--red);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">承認削除</button>
+      </td>
+    </tr>`).join('');
+  return `
+    <div class="sec" style="color:var(--red);margin-top:20px">⚠ 削除ログ — ${store}</div>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr><th>日付</th><th>費目</th><th>内容</th><th>購入者</th><th style="text-align:right">金額</th><th>操作</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
 function chgMonth(d) {
   const [y,m] = M.selectedMonth.split('-').map(Number);
   const dt = new Date(y,m-1+d,1);
