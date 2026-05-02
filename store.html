@@ -384,6 +384,7 @@ let S = {
   additionalCash: JSON.parse(localStorage.getItem(`${SK}_adds`) || '[]'),
   initCash: parseInt(localStorage.getItem(`${SK}_initCash`) || '20000'),
   buyers: JSON.parse(localStorage.getItem('buyers') || '[]'),
+  deletedReceipts: JSON.parse(localStorage.getItem(`${SK}_deleted`) || '[]'),
   selectedBuyer: '',
   pending: null, // 読み取り結果の一時保存
 };
@@ -393,6 +394,7 @@ function persist() {
   localStorage.setItem(`${SK}_adds`, JSON.stringify(S.additionalCash));
   localStorage.setItem(`${SK}_initCash`, S.initCash);
   localStorage.setItem('buyers', JSON.stringify(S.buyers));
+  localStorage.setItem(`${SK}_deleted`, JSON.stringify(S.deletedReceipts));
   if (S.geminiKey) localStorage.setItem('geminiKey', S.geminiKey);
   if (S.gasUrl) localStorage.setItem('gasUrl', S.gasUrl);
 }
@@ -696,8 +698,16 @@ function addCash() {
 }
 
 function delRec(id) {
-  if (!confirm('この領収書を削除しますか？')) return;
-  S.receipts = S.receipts.filter(r=>r.id!==id); persist(); updateBalance();
+  if (!confirm('この領収書を削除しますか？\n※削除ログに記録されます')) return;
+  const rec = S.receipts.find(r=>r.id===id);
+  if (rec) {
+    rec.deletedAt = new Date().toISOString();
+    S.deletedReceipts.push(rec);
+    S.receipts = S.receipts.filter(r=>r.id!==id);
+    persist();
+    updateBalance();
+    toast('削除しました（経営者画面で復元できます）');
+  }
 }
 
 function delAdd(id) {
