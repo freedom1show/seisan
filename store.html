@@ -618,7 +618,12 @@ async function doAnalyze() {
 // ==============================
 function selCat(cat) {
   S.selCat = cat;
-  renderApp();
+  // 費目ボタンのスタイルだけ更新（画面全体を再描画しない）
+  document.querySelectorAll('.cat-btn').forEach(b => {
+    b.style.borderColor = b.dataset.cat === cat ? 'var(--green)' : 'var(--border)';
+    b.style.background = b.dataset.cat === cat ? 'var(--green-bg)' : 'var(--surface2)';
+    b.style.color = b.dataset.cat === cat ? 'var(--green)' : 'var(--text2)';
+  });
 }
 
 async function doRegister() {
