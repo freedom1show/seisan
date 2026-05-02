@@ -602,6 +602,7 @@ function exportXlsx() {
 // ==============================
 // INIT
 // ==============================
+M.gasUrl = localStorage.getItem('gasUrl') || '';
 if (sessionStorage.getItem('mgr_auth') === '1') {
   init();
 }
