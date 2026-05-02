@@ -267,6 +267,7 @@ function buildApp() {
         <td>${r.date}</td>
         <td><span class="badge b-${r.category}">${r.category}</span></td>
         <td>${r.description||'—'}</td>
+        <td>${r.buyer||'—'}</td>
         <td class="td-r">${fmt(r.amount)}</td>
       </tr>`).join('');
 
@@ -325,7 +326,7 @@ function buildApp() {
     <div class="sec">明細一覧 — ${store}</div>
     <div class="tbl-wrap">
       <table class="tbl">
-        <thead><tr><th>日付</th><th>費目</th><th>内容</th><th style="text-align:right">金額</th></tr></thead>
+        <thead><tr><th>日付</th><th>費目</th><th>内容</th><th>購入者</th><th style="text-align:right">金額</th></tr></thead>
         <tbody>${rows}${addRows}</tbody>
       </table>
     </div>
@@ -412,8 +413,8 @@ function exportXlsx() {
 
   // 明細
   const ws1 = XLSX.utils.aoa_to_sheet([
-    ['取引日','費目','内容','金額（円）','区分'],
-    ...recs.map(r=>[r.date,r.category,r.description||'',r.amount,r.category==='仕入'?'仕入':'その他']),
+    ['取引日','費目','内容','購入者','金額（円）','区分'],
+    ...recs.map(r=>[r.date,r.category,r.description||'',r.buyer||'',r.amount,r.category==='仕入'?'仕入':'その他']),
     ...adds.map(a=>[a.date,'追加入金','',a.amount,'入金'])
   ]);
   ws1['!cols']=[{wch:12},{wch:12},{wch:26},{wch:14},{wch:10}];
@@ -433,7 +434,7 @@ function exportXlsx() {
   // freee入力用
   const ws3 = XLSX.utils.aoa_to_sheet([
     ['取引日','勘定科目','税区分','金額','摘要'],
-    ...recs.map(r=>[r.date,r.category,'課税仕入10%',r.amount,`${store} ${r.description||r.category}`])
+    ...recs.map(r=>[r.date,r.category,'課税仕入10%',r.amount,`${store} ${r.description||r.category}`,r.buyer||''])
   ]);
   ws3['!cols']=[{wch:12},{wch:12},{wch:14},{wch:12},{wch:32}];
   XLSX.utils.book_append_sheet(wb,ws3,'freee入力用');

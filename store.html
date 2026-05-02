@@ -134,6 +134,15 @@ input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,71,42,0.1)}
 .sdiv{height:1px;background:var(--border)}
 .empty{text-align:center;padding:26px 0;color:var(--text3);font-size:13px}
 
+/* 購入者 */
+.buyer-section{margin-top:10px}
+.buyer-lbl{font-size:11px;color:var(--text2);font-weight:600;letter-spacing:.06em;margin-bottom:6px}
+.buyer-btns{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:7px}
+.buyer-btn{padding:7px 14px;border:1.5px solid var(--border);border-radius:20px;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+.buyer-btn.sel{border-color:var(--green);background:var(--green-bg);color:var(--green)}
+.buyer-input-row{display:flex;gap:6px;align-items:center}
+.buyer-input-row input{flex:1;font-size:14px;padding:8px 12px}
+
 /* API SETTINGS */
 .api-card{border-radius:14px;padding:13px 15px;margin-bottom:10px}
 .api-title{font-size:11px;font-weight:700;letter-spacing:.1em;margin-bottom:7px}
@@ -240,6 +249,13 @@ input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,71,42,0.1)}
         <span class="cat-badge" id="res-cat">未判定</span>
         <span class="cat-note" id="res-cat-note"></span>
       </div>
+      <div class="buyer-section">
+        <div class="buyer-lbl">買った人</div>
+        <div class="buyer-btns" id="buyer-btns"></div>
+        <div class="buyer-input-row">
+          <input type="text" id="buyer-input" placeholder="名前を入力（新しい人の場合）">
+        </div>
+      </div>
     </div>
   </div>
 
@@ -283,6 +299,14 @@ input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(26,71,42,0.1)}
     ⚙ 設定 <span id="settings-arrow" style="font-size:10px">▼</span>
   </div>
   <div id="settings-panel" style="display:none">
+    <div class="api-card" style="background:var(--surface);border:1px solid var(--border)">
+      <div class="api-title" style="color:var(--text2)">購入者を登録（よく買いに行く人）</div>
+      <div class="api-row" style="margin-bottom:8px">
+        <div class="fg"><input type="text" id="inp-buyer" placeholder="名前を入力"></div>
+        <button class="api-btn" style="background:var(--green)" onclick="addBuyer()">追加</button>
+      </div>
+      <div id="buyer-list-wrap" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+    </div>
     <div class="api-card" style="background:#eaf0f7;border:1.5px solid #90c4f0">
       <div class="api-title" style="color:var(--blue)">GEMINI API KEY（月1500回無料）</div>
       <div class="api-row">
@@ -346,6 +370,8 @@ let S = {
   receipts: JSON.parse(localStorage.getItem(`${SK}_receipts`) || '[]'),
   additionalCash: JSON.parse(localStorage.getItem(`${SK}_adds`) || '[]'),
   initCash: parseInt(localStorage.getItem(`${SK}_initCash`) || '20000'),
+  buyers: JSON.parse(localStorage.getItem('buyers') || '[]'),
+  selectedBuyer: '',
   pending: null, // 読み取り結果の一時保存
 };
 
@@ -353,6 +379,7 @@ function persist() {
   localStorage.setItem(`${SK}_receipts`, JSON.stringify(S.receipts));
   localStorage.setItem(`${SK}_adds`, JSON.stringify(S.additionalCash));
   localStorage.setItem(`${SK}_initCash`, S.initCash);
+  localStorage.setItem('buyers', JSON.stringify(S.buyers));
   if (S.geminiKey) localStorage.setItem('geminiKey', S.geminiKey);
   if (S.gasUrl) localStorage.setItem('gasUrl', S.gasUrl);
 }
@@ -431,7 +458,7 @@ function updateBalance() {
       <div class="r-item">
         <span class="r-date">${item.date}</span>
         <span class="r-badge b-${item.category}">${item.category}</span>
-        <span class="r-desc">${item.description||'—'}</span>
+        <span class="r-desc">${item.description||'—'}${item.buyer?' ('+item.buyer+')':''}</span>
         <span class="r-amt ${item.type==='add'?'style="color:var(--yellow)"':''}">${fmt(item.amount)}</span>
         <button class="r-del" onclick="${item.type==='rec'?`delRec('${item.id}')`:`delAdd('${item.id}')`}">×</button>
       </div>`).join('');
@@ -588,11 +615,22 @@ async function doAnalyze() {
     // 登録ボタンを有効化
     document.getElementById('register-btn').disabled = false;
 
+    // カウントダウン停止・ボタンを「登録待ち」表示に
+    if (cooldownTimer) { clearInterval(cooldownTimer); cooldownTimer = null; }
+    const ab = document.getElementById('analyze-btn');
+    if (ab) { ab.disabled = true; ab.textContent = '✓ 読み取り完了'; ab.classList.remove('ready'); }
+
     // 画像をメモリから破棄
     S.pending.b64 = null;
     document.getElementById('prev-thumb').src = '';
 
-    toast('読み取り完了 ✓ 内容を確認して登録してください');
+    // 購入者ボタンを描画
+    renderBuyerBtns();
+    S.selectedBuyer = '';
+    const bi = document.getElementById('buyer-input');
+    if (bi) bi.value = '';
+
+    toast('読み取り完了 ✓ 買った人を選んで登録してください');
   } else {
     toast('読み取りに失敗しました。もう一度試してください','err');
     analyzeBtn.disabled = false;
@@ -609,9 +647,18 @@ function doRegister() {
   const { date, amount, description, category } = S.pending.result;
   if (!amount || amount <= 0) { toast('金額が読み取れませんでした','err'); return; }
 
+  // 購入者取得（ボタン選択 or 手入力）
+  const buyerInput = document.getElementById('buyer-input')?.value.trim();
+  const buyer = buyerInput || S.selectedBuyer || '';
+  // 新しい名前なら登録
+  if (buyerInput && !S.buyers.includes(buyerInput)) {
+    S.buyers.push(buyerInput);
+  }
+
   const r = {
     id: Date.now().toString(),
     date, amount, category, description,
+    buyer,
     store: STORE,
     createdAt: new Date().toISOString()
   };
@@ -659,6 +706,32 @@ function delAdd(id) {
 // ==============================
 // SETTINGS
 // ==============================
+function addBuyer() {
+  const name = document.getElementById('inp-buyer')?.value.trim();
+  if (!name) return;
+  if (!S.buyers.includes(name)) { S.buyers.push(name); persist(); }
+  document.getElementById('inp-buyer').value = '';
+  refreshBuyerList();
+  toast(`「${name}」を登録しました ✓`);
+}
+
+function removeBuyer(name) {
+  S.buyers = S.buyers.filter(b => b !== name);
+  persist();
+  refreshBuyerList();
+}
+
+function refreshBuyerList() {
+  const wrap = document.getElementById('buyer-list-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = S.buyers.map(b =>
+    `<span style="display:flex;align-items:center;gap:4px;background:var(--green-bg);border:1px solid rgba(26,71,42,0.2);border-radius:20px;padding:4px 10px;font-size:12px;color:var(--green)">
+      ${b}
+      <button onclick="removeBuyer('${b}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0;line-height:1">×</button>
+    </span>`
+  ).join('');
+}
+
 function toggleSettings() {
   const panel = document.getElementById('settings-panel');
   const arrow = document.getElementById('settings-arrow');
@@ -669,7 +742,23 @@ function toggleSettings() {
     document.getElementById('inp-gkey').value = S.geminiKey;
     document.getElementById('inp-gas').value = S.gasUrl;
     document.getElementById('inp-init').value = S.initCash;
+    refreshBuyerList();
   }
+}
+
+function renderBuyerBtns() {
+  const wrap = document.getElementById('buyer-btns');
+  if (!wrap) return;
+  wrap.innerHTML = S.buyers.map(b =>
+    `<button class="buyer-btn ${S.selectedBuyer===b?'sel':''}" onclick="selectBuyer('${b}')">${b}</button>`
+  ).join('');
+}
+
+function selectBuyer(name) {
+  S.selectedBuyer = name;
+  const bi = document.getElementById('buyer-input');
+  if (bi) bi.value = '';
+  renderBuyerBtns();
 }
 
 function saveGemini() { S.geminiKey=document.getElementById('inp-gkey').value.trim(); persist(); toast('APIキーを保存しました ✓'); }
