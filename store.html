@@ -429,11 +429,11 @@ function toast(msg, type='ok') {
 async function syncGAS(type, data) {
   if (!S.gasUrl) return;
   try {
-    await fetch(S.gasUrl, {
-      method:'POST', mode:'no-cors',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ type, store: STORE, data })
-    });
+    const url = new URL(S.gasUrl);
+    url.searchParams.set('type', type);
+    url.searchParams.set('store', STORE);
+    url.searchParams.set('data', JSON.stringify(data));
+    await fetch(url.toString(), { method:'GET', mode:'no-cors' });
   } catch(e) {}
 }
 
@@ -705,6 +705,7 @@ function delRec(id) {
     S.deletedReceipts.push(rec);
     S.receipts = S.receipts.filter(r=>r.id!==id);
     persist();
+    syncGAS('deleted', rec);
     updateBalance();
     toast('削除しました（経営者画面で復元できます）');
   }
