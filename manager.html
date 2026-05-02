@@ -209,19 +209,18 @@ let M = {
 // ==============================
 async function gasCall(params) {
   if (!M.gasUrl) return null;
-  try {
+  return new Promise((resolve) => {
     const url = new URL(M.gasUrl);
     Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, typeof v === 'object' ? JSON.stringify(v) : v));
-    const res = await fetch(url.toString(), {
-      redirect: 'follow',
-      mode: 'cors',
-    });
-    const text = await res.text();
-    return JSON.parse(text);
-  } catch(e) {
-    console.error('GAS error:', e);
-    return null;
-  }
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', url.toString(), true);
+    xhr.onload = () => {
+      try { resolve(JSON.parse(xhr.responseText)); }
+      catch(e) { console.error('Parse error:', xhr.responseText); resolve(null); }
+    };
+    xhr.onerror = () => { console.error('XHR error'); resolve(null); };
+    xhr.send();
+  });
 }
 
 // ==============================
