@@ -207,7 +207,10 @@ const fmt = n => '¥' + Number(n||0).toLocaleString();
 function getStoreRecs(store, month) {
   const key = `store_${store}_receipts`;
   const all = JSON.parse(localStorage.getItem(key) || '[]');
-  return month ? all.filter(r => r.date.startsWith(month)) : all;
+  // 削除済みIDを除外
+  const deleted = getStoreDeleted(store).map(r => r.id);
+  const active = all.filter(r => !deleted.includes(r.id));
+  return month ? active.filter(r => r.date.startsWith(month)) : active;
 }
 function getStoreAdds(store, month) {
   const key = `store_${store}_adds`;
