@@ -212,8 +212,12 @@ async function gasCall(params) {
   try {
     const url = new URL(M.gasUrl);
     Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, typeof v === 'object' ? JSON.stringify(v) : v));
-    const res = await fetch(url.toString());
-    return await res.json();
+    const res = await fetch(url.toString(), {
+      redirect: 'follow',
+      mode: 'cors',
+    });
+    const text = await res.text();
+    return JSON.parse(text);
   } catch(e) {
     console.error('GAS error:', e);
     return null;
